@@ -1,0 +1,236 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Firebase Cloud Message Demo</title>
+	<meta charset="utf-8" />
+
+    <script src="https://www.gstatic.com/firebasejs/4.0.0/firebase.js"></script>
+    <script>
+        // Initialize Firebase
+        // TODO: Replace with your project's customized code snippet
+        // AIzaSyACttEOdn3T2S2WCsMNPGTCTxIyknBXTtU
+        var config = {
+            apiKey: "AIzaSyCygMMTSreqUG26pb9b2OSB0Dii6GPsVDg",
+            authDomain: "busyweb-projects-7aaf0.firebaseapp.com",
+            storageBucket: "busyweb-projects-7aaf0.appspot.com",
+            messagingSenderId: "60361198224",
+        };
+        firebase.initializeApp(config);
+
+        /**
+     * Handles the sign in button press.
+     */
+        function toggleSignIn() {
+            if (firebase.auth().currentUser) {
+                // [START signout]
+                firebase.auth().signOut();
+                // [END signout]
+
+
+            } else {
+                var email = document.getElementById('email').value;
+                var password = document.getElementById('password').value;
+                if (email.length < 4) {
+                    alert('Please enter an email address.');
+                    return;
+                }
+                if (password.length < 4) {
+                    alert('Please enter a password.');
+                    return;
+                }
+                // Sign in with email and pass.
+                // [START authwithemail]
+                firebase.auth().signInWithEmailAndPassword(email, password).catch(function (error) {
+                    // Handle Errors here.
+                    var errorCode = error.code;
+                    var errorMessage = error.message;
+                    // [START_EXCLUDE]
+                    if (errorCode === 'auth/wrong-password') {
+                        alert('Wrong password.');
+                    } else {
+                        alert(errorMessage);
+                    }
+                    console.log(error);
+                    document.getElementById('quickstart-sign-in').disabled = false;
+                    // [END_EXCLUDE]
+                });
+                // [END authwithemail]
+            }
+            document.getElementById('quickstart-sign-in').disabled = true;
+        }
+
+        /**
+             * initApp handles setting up UI event listeners and registering Firebase auth listeners:
+             *  - firebase.auth().onAuthStateChanged: This listener is called when the user is signed in or
+             *    out, and that is where we update the UI.
+             */
+        function initApp() {
+            // Listening for auth state changes.
+            // [START authstatelistener]
+            firebase.auth().onAuthStateChanged(function (user) {
+                // [START_EXCLUDE silent]
+                //document.getElementById('quickstart-verify-email').disabled = true;
+                // [END_EXCLUDE]
+                if (user) {
+                    // User is signed in.
+                    var displayName = user.displayName;
+                    var email = user.email;
+                    var emailVerified = user.emailVerified;
+                    var photoURL = user.photoURL;
+                    var isAnonymous = user.isAnonymous;
+                    var uid = user.uid;
+                    var providerData = user.providerData;
+                    // [START_EXCLUDE]
+                    document.getElementById('quickstart-sign-in-status').textContent = 'Signed in';
+                    document.getElementById('quickstart-sign-in').textContent = 'Sign out';
+                    document.getElementById('quickstart-account-details').textContent = JSON.stringify(user, null, '  ');
+                    if (!emailVerified) {
+                        document.getElementById('buttonSend').disabled = true;
+                        document.getElementById("remoteCommandStatus").textContent = 'Email not yet verified, use android app to verify email.';
+                    } else {
+                        document.getElementById('buttonSend').disabled = false;
+                        document.getElementById("remoteCommandStatus").textContent = 'Email verified.';
+                   }
+
+                    document.getElementById('email').textContent = user.email;
+                    document.getElementById('buttonSend').disabled = false;
+
+                    document.getElementById('divPassword').style.display = 'none';
+                    document.getElementById('divEmail').style.display = 'none'
+
+                    // [END_EXCLUDE]
+                } else {
+                    // User is signed out.
+                    // [START_EXCLUDE]
+                    document.getElementById('quickstart-sign-in-status').textContent = 'Signed out';
+                    document.getElementById('quickstart-sign-in').textContent = 'Sign in';
+                    document.getElementById('quickstart-account-details').textContent = 'null';
+
+                    document.getElementById('buttonSend').disabled = true;
+                    document.getElementById("remoteCommandStatus").textContent = '';
+                    // [END_EXCLUDE]
+
+                    document.getElementById('divPassword').style.display = '';
+                    document.getElementById('divEmail').style.display = ''
+                }
+                // [START_EXCLUDE silent]
+                document.getElementById('quickstart-sign-in').disabled = false;
+                // [END_EXCLUDE]
+            });
+            // [END authstatelistener]
+            document.getElementById('quickstart-sign-in').addEventListener('click', toggleSignIn, false);
+            //document.getElementById('quickstart-sign-up').addEventListener('click', handleSignUp, false);
+            //document.getElementById('quickstart-verify-email').addEventListener('click', sendEmailVerification, false);
+            //document.getElementById('quickstart-password-reset').addEventListener('click', sendPasswordReset, false);
+        }
+        window.onload = function () {
+            initApp();
+        };
+    </script>
+
+    </script>
+    <script src="Scripts/jquery-1.12.4.min.js"></script>
+    <style type="text/css">
+        body {
+            padding: 40px, 40px, 40px, 40px;
+        }
+        div {
+            margin: 20px;
+        }
+    </style>
+    <script type="text/javascript">
+
+        $(document).ready(function () {
+            baseUrl = "http://www.busywww.com/";
+
+            $("#buttonSend").click(function (e) {
+                var email = document.getElementById('email').textContent;
+                //$("#email").val();
+                var message = $("#message").val();
+                //alert(email + ' ' + message + '  ' + document.getElementById('email').textContent);
+                sendRemoteMessage(email, message);
+            });
+        });
+
+        function sendRemoteMessage(email, message) {
+            var params = {
+                email: email,
+                message: message
+            };
+            $.ajax({
+                type: "POST",
+                url: baseUrl + "FirebaseCloudMessageDemo.asmx/SendRemoteMessage",
+                data: JSON.stringify(params),
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                async: true,
+                processData: false,
+                success: function (msg) {
+                    //var val = $.parseJSON(msg);
+                    var val = msg;
+                    var result;
+                    //public class MessageResponse
+                    //{
+                    //    public string multicast_id;
+                    //    public string success;
+                    //    public string failure;
+                    //    public string canonical_ids;
+                    //}
+                    var success = val.success;
+                    var failure = val.failure;
+                    //alert(success + "," + failure);
+
+                    if (success != 0) {
+                        result = "Remote message sent successfully.";
+                    } else {
+                        result = "Failed to send remote message, please try again.";
+                    }
+
+                    alert(result);
+
+                },
+                error: function (XMLHttpRequest, textStatus, errorThrown) {
+                    alert(XMLHttpRequest + ": " + textStatus + ": " + errorThrown);
+                }
+            });
+        }
+    </script>
+</head>
+<body>
+
+    <div style="margin: 40px;">
+        <h2>Firebase Cloud Message Demo</h2>
+
+        <h4>Send Remote Command to Android Device</h4>
+
+        <div class="quickstart-user-details-container" style="">
+            Sign-in status: <span id="quickstart-sign-in-status">Unknown</span>
+            <div>Firebase auth <code>currentUser</code> object value:</div>
+            <pre><code id="quickstart-account-details">null</code></pre>
+        </div>
+
+        <div id="divEmail" name="divPassword">
+            Email:&nbsp;
+            <br /><input type="text" id="email" name="email" style="width: 300px;" value="your@email.address" />
+        </div>
+        <div id="divPassword" name="divPassword">
+            Password:&nbsp;
+            <br /><input type="password" id="password" name="password" style="width: 300px;" value="" />
+        </div>
+        <div>
+            <button id="quickstart-sign-in" name="quickstart-sign-in">Sign In</button>
+        </div>
+
+        <div style="width:1px; height:40px;">&nbsp;</div>
+
+        <div>
+            Remote Command:&nbsp;<span id="remoteCommandStatus" name="remoteCommandStatus"></span>
+            <br /><input type="text" id="message" name="message" style="width: 300px;" value="echo hello"/>
+        </div>
+        <div>
+            <input type="button" id="buttonSend" name="buttonSend" value="Send Remote Command" />
+        </div>
+
+    </div>
+</body>
+</html>

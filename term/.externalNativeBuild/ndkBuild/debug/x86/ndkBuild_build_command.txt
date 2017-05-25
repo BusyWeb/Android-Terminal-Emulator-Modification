@@ -1,0 +1,16 @@
+Executable : C:\Android\adt-bundle-windows-x86_64-20140702\android-ndk-r13b-windows-x86_64\android-ndk-r13b\ndk-build.cmd
+arguments : 
+NDK_PROJECT_PATH=null
+APP_BUILD_SCRIPT=C:\Users\BusyWeb\Documents\UpWork\AndroidTerminalEmulator\Android-Terminal-Emulator\term\src\main\jni\Android.mk
+APP_ABI=x86
+NDK_ALL_ABIS=x86
+NDK_DEBUG=1
+APP_PLATFORM=android-9
+NDK_OUT=C:/Users/BusyWeb/Documents/UpWork/AndroidTerminalEmulator/Android-Terminal-Emulator/term/build/intermediates/ndkBuild/debug/obj
+NDK_LIBS_OUT=C:\Users\BusyWeb\Documents\UpWork\AndroidTerminalEmulator\Android-Terminal-Emulator\term\build\intermediates\ndkBuild\debug\lib
+APP_SHORT_COMMANDS=false
+LOCAL_SHORT_COMMANDS=false
+-B
+-n
+jvmArgs : 
+
