@@ -2,6 +2,9 @@ package jackpal.androidterm.firebase;
 
 import android.content.Context;
 import android.net.Uri;
+import android.os.AsyncTask;
+import android.os.Handler;
+import android.os.Looper;
 
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -19,6 +22,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Date;
 import java.util.Iterator;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Created by BusyWeb on 1/9/2017.
@@ -27,6 +31,7 @@ import java.util.Iterator;
 public class MyFirebaseShared {
 
     private static MyFirebaseShared firebaseShared = null;
+
     public static MyFirebaseShared getInstance() {
         if (firebaseShared == null) {
             firebaseShared = new MyFirebaseShared();
@@ -58,7 +63,9 @@ public class MyFirebaseShared {
         //public String GoogleAccountId;
         public String DeviceToken;
 
-        public FcmUser() {}
+        public FcmUser() {
+        }
+
         public FcmUser(String json) {
             try {
                 if (json != null && json != "" && !json.equalsIgnoreCase("null") && json.startsWith("{")) {
@@ -68,10 +75,10 @@ public class MyFirebaseShared {
                     Object objEmail = jsonObject.get("Email");
                     Object objUserId = jsonObject.get("UserId");
                     Object objDeviceToken = jsonObject.get("DeviceToken");
-                    Id = (!isObjectNullOrEmpty(objId) ? (Integer)objId : -1);
-                    Email = (!isObjectNullOrEmpty(objEmail) ? (String)objEmail : "");
-                    UserId = (!isObjectNullOrEmpty(objUserId) ? (String)objUserId : "");
-                    DeviceToken = (!isObjectNullOrEmpty(objDeviceToken) ? (String)objDeviceToken : "");
+                    Id = (!isObjectNullOrEmpty(objId) ? (Integer) objId : -1);
+                    Email = (!isObjectNullOrEmpty(objEmail) ? (String) objEmail : "");
+                    UserId = (!isObjectNullOrEmpty(objUserId) ? (String) objUserId : "");
+                    DeviceToken = (!isObjectNullOrEmpty(objDeviceToken) ? (String) objDeviceToken : "");
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -82,6 +89,7 @@ public class MyFirebaseShared {
     private FcmUser getNewUser(String json) {
         return new FcmUser(json);
     }
+
     public static FcmUser GetServerUser(String json) {
         FcmUser user = getInstance().getNewUser(json);
         return user;
@@ -136,10 +144,11 @@ public class MyFirebaseShared {
         return MyFirebaseShared.SendRequestToServer(MyFirebaseShared.RegisterUserUrl, params);
     }
 
-    public static String UnRegisterUser(FirebaseUser firebaseUser) {
+    public static String UnRegisterUser(FirebaseUser firebaseUser) throws ExecutionException, InterruptedException {
         return UnRegisterUser(firebaseUser.getEmail());
     }
-    public static String UnRegisterUser(String email) {
+
+    public static String UnRegisterUser(String email) throws ExecutionException, InterruptedException {
         JSONObject params = new JSONObject();
         try {
             params.put("email", email);
@@ -147,9 +156,11 @@ public class MyFirebaseShared {
             e2.printStackTrace();
         }
         return MyFirebaseShared.SendRequestToServer(MyFirebaseShared.UnRegisterUserUrl, params);
+//        String result = new SendRequestToServerTask(params).execute(MyFirebaseShared.UnRegisterUserUrl).get();
+//        return result;
     }
 
-    public static String UpdateUserToken(String email, String deviceToken) {
+    public static String UpdateUserToken(String email, String deviceToken) throws ExecutionException, InterruptedException {
         JSONObject params = new JSONObject();
         try {
             params.put("email", email);
@@ -158,15 +169,20 @@ public class MyFirebaseShared {
             e.printStackTrace();
         }
         return MyFirebaseShared.SendRequestToServer(MyFirebaseShared.UpdateTokenUrl, params);
+//        String result = new SendRequestToServerTask(params).execute(MyFirebaseShared.UpdateTokenUrl).get();
+//        return result;
     }
+
 
     // server side implementation
     public static boolean Debug = false;
     public static String ServerUrl = "http://www.busywww.com";
     public static String ServerUrlDebug = "http://localhost:8080";
+
     public static String GetServerUrl() {
         return (Debug ? ServerUrlDebug : ServerUrl);
     }
+
     public static final String ServiceName = "FirebaseCloudMessageDemo.asmx";
     public static final Integer ServicePort = 80;
     public static final String RegisterUserUrl = String.format("%s/%s/RegisterUser", GetServerUrl(), ServiceName);
@@ -174,56 +190,142 @@ public class MyFirebaseShared {
     public static final String GetUserUrl = String.format("%s/%s/GetUser", GetServerUrl(), ServiceName);
     public static final String UpdateTokenUrl = String.format("%s/%s/UpdateToken", GetServerUrl(), ServiceName);
 
-    public static String SendRequestToServer(String url, JSONObject params) {
-        String response = "";
+
+    private static String ServerResponse = "";
+
+    public static String SendRequestToServer(final String url, final JSONObject params) {
+        //String response = "";
+        ServerResponse = "";
+        String result = "";
+        SendRequestToServerTask task = new SendRequestToServerTask(params);
+        task.execute(url);
         try {
-            URL endpoint = new URL(url);
-            //String body = params.toString();
-            Uri.Builder builder = new Uri.Builder();
-            Iterator<String> iterator = params.keys();
-            while (iterator.hasNext()) {
-                String key = iterator.next();
-                String value = params.getString(key);
-                builder.appendQueryParameter(key, value);
-            }
-            String body = builder.build().getEncodedQuery();
-
-            HttpURLConnection connection = (HttpURLConnection) endpoint.openConnection();
-            connection.setReadTimeout(15000);
-            connection.setConnectTimeout(15000);
-            connection.setDoInput(true);
-            connection.setDoOutput(true);
-            connection.setUseCaches(false);
-            connection.setRequestMethod("POST");
-            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8");
-
-            OutputStream outputStream = new BufferedOutputStream(connection.getOutputStream());
-            outputStream.write(body.getBytes());
-            outputStream.close();
-
-            int status = connection.getResponseCode();
-            if (status == 200) {
-                BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-                String line;
-                while ((line = bufferedReader.readLine()) != null) {
-                    response += line;
-                }
-            } else {
-                response = "";
-            }
-
+            result = task.get().toString();
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return response;
+        return result;
+
+//        Looper.prepare();
+//
+//        Handler handler = new Handler();
+//        handler.post(new Runnable() {
+//            @Override
+//            public void run() {
+//                try {
+//                    URL endpoint = new URL(url);
+//                    //String body = params.toString();
+//                    Uri.Builder builder = new Uri.Builder();
+//                    Iterator<String> iterator = params.keys();
+//                    while (iterator.hasNext()) {
+//                        String key = iterator.next();
+//                        String value = params.getString(key);
+//                        builder.appendQueryParameter(key, value);
+//                    }
+//                    String body = builder.build().getEncodedQuery();
+//
+//                    HttpURLConnection connection = (HttpURLConnection) endpoint.openConnection();
+//                    connection.setReadTimeout(15000);
+//                    connection.setConnectTimeout(15000);
+//                    connection.setDoInput(true);
+//                    connection.setDoOutput(true);
+//                    connection.setUseCaches(false);
+//                    connection.setRequestMethod("POST");
+//                    connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8");
+//
+//                    OutputStream outputStream = new BufferedOutputStream(connection.getOutputStream());
+//                    outputStream.write(body.getBytes());
+//                    outputStream.close();
+//
+//                    int status = connection.getResponseCode();
+//                    if (status == 200) {
+//                        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+//                        String line;
+//                        while ((line = bufferedReader.readLine()) != null) {
+//                            ServerResponse += line;
+//                        }
+//                    } else {
+//                        ServerResponse = "";
+//                    }
+//                } catch (Exception e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//        });
+//        Looper.loop();
+
+//        return ServerResponse;
     }
+
+    public static class SendRequestToServerTask extends AsyncTask<String, Void, String> {
+
+        JSONObject mParams = null;
+
+        public SendRequestToServerTask(JSONObject params) {
+            mParams = params;
+        }
+
+        @Override
+        protected String doInBackground(String... urls) {
+            try {
+                URL endpoint = new URL(urls[0]);
+                //String body = params.toString();
+                Uri.Builder builder = new Uri.Builder();
+                Iterator<String> iterator = mParams.keys();
+                while (iterator.hasNext()) {
+                    String key = iterator.next();
+                    String value = mParams.getString(key);
+                    builder.appendQueryParameter(key, value);
+                }
+                String body = builder.build().getEncodedQuery();
+
+                HttpURLConnection connection = (HttpURLConnection) endpoint.openConnection();
+                connection.setReadTimeout(15000);
+                connection.setConnectTimeout(15000);
+                connection.setDoInput(true);
+                connection.setDoOutput(true);
+                connection.setUseCaches(false);
+                connection.setRequestMethod("POST");
+                connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8");
+
+                OutputStream outputStream = new BufferedOutputStream(connection.getOutputStream());
+                outputStream.write(body.getBytes());
+                outputStream.close();
+
+                int status = connection.getResponseCode();
+                if (status == 200) {
+                    BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                    String line;
+                    while ((line = bufferedReader.readLine()) != null) {
+                        ServerResponse += line;
+                    }
+                } else {
+                    ServerResponse = "";
+                }
+                return ServerResponse;
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            return null;
+        }
+
+        protected void onPostExecute(String result) {
+            try {
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+
 
     private boolean isObjectNullOrEmpty(Object object) {
         if (object == null) {
             return true;
         }
         if (object instanceof String) {
-            String val = (String)object;
+            String val = (String) object;
             if (val == null || val.equalsIgnoreCase("") || val.length() < 1) {
                 return true;
             } else {
@@ -231,7 +333,7 @@ public class MyFirebaseShared {
             }
         }
         if (object instanceof Integer) {
-            Integer valInt = (Integer)object;
+            Integer valInt = (Integer) object;
             if (valInt == null || valInt < 0) {
                 return true;
             } else {
@@ -239,7 +341,7 @@ public class MyFirebaseShared {
             }
         }
         if (object instanceof Date) {
-            Date valDate = (Date)object;
+            Date valDate = (Date) object;
             if (valDate == null || valDate.toString().length() < 1) {
                 return true;
             } else {
@@ -247,7 +349,7 @@ public class MyFirebaseShared {
             }
         }
         if (object instanceof Boolean) {
-            Boolean valBool = (Boolean)object;
+            Boolean valBool = (Boolean) object;
             if (valBool == null) {
                 return true;
             } else {

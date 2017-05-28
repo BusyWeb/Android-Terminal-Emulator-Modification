@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
@@ -22,7 +23,14 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.iid.FirebaseInstanceId;
 
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Executor;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
 import jackpal.androidterm.R;
+import jackpal.androidterm.Term;
 import jackpal.androidterm.firebase.MyFirebaseShared;
 import jackpal.androidterm.util.GeneralHelper;
 
@@ -216,7 +224,7 @@ public class RemoteActivity extends AppCompatActivity implements
             return;
         }
 
-        showProgressDialog("Wait...");
+        //showProgressDialog("Wait...");
 
         // [START create_user_with_email]
         mFirebaseAuth.createUserWithEmailAndPassword(email, password)
@@ -229,7 +237,11 @@ public class RemoteActivity extends AppCompatActivity implements
                             FirebaseUser user = mFirebaseAuth.getCurrentUser();
                             MyFirebaseShared.FbUser = user;
                             MyFirebaseShared.ServerUser = null;
-                            updateUI(user);
+                            //updateUI(user);
+
+                            Toast.makeText(RemoteActivity.this, "User has been created, please sign in again and verify email address", Toast.LENGTH_LONG).show();
+
+                            signOut();
                         } else {
                             MyFirebaseShared.FbUser = null;
                             MyFirebaseShared.ServerUser = null;
@@ -315,30 +327,30 @@ public class RemoteActivity extends AppCompatActivity implements
 //    }
 
     private void showProgressDialog(final String message) {
-        mActivity.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (mProgressDialog == null) {
-                    mProgressDialog = ProgressDialog.show(mContext, null, message);
-                } else {
-                    if (!mProgressDialog.isShowing()) {
-                        mProgressDialog.show();
-                    }
-                }
-            }
-        });
+//        mActivity.runOnUiThread(new Runnable() {
+//            @Override
+//            public void run() {
+//                if (mProgressDialog == null) {
+//                    mProgressDialog = ProgressDialog.show(mContext, null, message);
+//                } else {
+//                    if (!mProgressDialog.isShowing()) {
+//                        mProgressDialog.show();
+//                    }
+//                }
+//            }
+//        });
     }
 
     private void hideProgressDialog() {
-        mActivity.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (mProgressDialog != null) {
-                    mProgressDialog.dismiss();
-                    mProgressDialog = null;
-                }
-            }
-        });
+//        mActivity.runOnUiThread(new Runnable() {
+//            @Override
+//            public void run() {
+//                if (mProgressDialog != null) {
+//                    mProgressDialog.dismiss();
+//                    mProgressDialog = null;
+//                }
+//            }
+//        });
     }
 
     private void signIn(String email, String password) {
@@ -416,7 +428,22 @@ public class RemoteActivity extends AppCompatActivity implements
             return;
         }
 
-        new RegisterUserTask().execute(MyFirebaseShared.FbUser);
+        //new RegisterUserTask().execute(MyFirebaseShared.FbUser);
+
+        int corePoolSize = 60;
+        int maximumPoolSize = 80;
+        int keepAliveTime = 10;
+
+        BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<Runnable>(maximumPoolSize);
+        Executor threadPoolExecutor = new ThreadPoolExecutor(corePoolSize, maximumPoolSize, keepAliveTime, TimeUnit.SECONDS, workQueue);
+        RegisterUserTask task = new RegisterUserTask();
+
+        if (Build.VERSION.SDK_INT>=Build.VERSION_CODES.HONEYCOMB) {
+            //task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, email);
+            task.executeOnExecutor(threadPoolExecutor, MyFirebaseShared.FbUser);
+        } else {
+            task.execute(MyFirebaseShared.FbUser);
+        }
     }
 
     private void unregisterUser() {
@@ -429,7 +456,21 @@ public class RemoteActivity extends AppCompatActivity implements
             return;
         }
 
-        new UnRegisterUserTask().execute(MyFirebaseShared.FbUser);
+        //new UnRegisterUserTask().execute(MyFirebaseShared.FbUser);
+        int corePoolSize = 60;
+        int maximumPoolSize = 80;
+        int keepAliveTime = 10;
+
+        BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<Runnable>(maximumPoolSize);
+        Executor threadPoolExecutor = new ThreadPoolExecutor(corePoolSize, maximumPoolSize, keepAliveTime, TimeUnit.SECONDS, workQueue);
+        UnRegisterUserTask task = new UnRegisterUserTask();
+
+        if (Build.VERSION.SDK_INT>=Build.VERSION_CODES.HONEYCOMB) {
+            //task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, email);
+            task.executeOnExecutor(threadPoolExecutor, MyFirebaseShared.FbUser);
+        } else {
+            task.execute(MyFirebaseShared.FbUser);
+        }
     }
 
 //    private void revokeAuthorization() {
@@ -449,8 +490,8 @@ public class RemoteActivity extends AppCompatActivity implements
         hideProgressDialog();
         if (user != null) {
             mStatusTextView.setText(user.getEmail() + "(Verified: " + user.isEmailVerified() + ")");
-            mDetailTextView.setText("USER ID: " + user.getUid());
 
+            mDetailTextView.setText("USER ID: " + user.getUid());
             findViewById(R.id.email_password_buttons).setVisibility(View.GONE);
             findViewById(R.id.email_password_fields).setVisibility(View.GONE);
             findViewById(R.id.signed_in_buttons).setVisibility(View.VISIBLE);
@@ -492,7 +533,9 @@ public class RemoteActivity extends AppCompatActivity implements
                     mUnRegisterButton.setEnabled(false);
                 } else {
                     if (MyFirebaseShared.FbUser.isEmailVerified()) {
-                        if (MyFirebaseShared.ServerUser != null) {
+                        if (MyFirebaseShared.ServerUser != null
+                                && MyFirebaseShared.ServerUser.Email != null
+                                && MyFirebaseShared.ServerUser.DeviceToken != null) {
                             mRegisterButton.setEnabled(false);
                             mUnRegisterButton.setEnabled(true);
                             mTextViewMessage.setText("NO MESSAGE");
@@ -512,14 +555,29 @@ public class RemoteActivity extends AppCompatActivity implements
     }
 
     private void checkRegistrationStatus(String email) {
-        new GetUserTask().execute(email);
+        //new GetUserTask().execute(email);
+        int corePoolSize = 60;
+        int maximumPoolSize = 80;
+        int keepAliveTime = 10;
+
+        BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<Runnable>(maximumPoolSize);
+        Executor threadPoolExecutor = new ThreadPoolExecutor(corePoolSize, maximumPoolSize, keepAliveTime, TimeUnit.SECONDS, workQueue);
+        GetUserTask task = new GetUserTask();
+
+        if (Build.VERSION.SDK_INT>=Build.VERSION_CODES.HONEYCOMB) {
+            //task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, email);
+            task.executeOnExecutor(threadPoolExecutor, email);
+        } else {
+            task.execute(email);
+        }
+
     }
 
     private class GetUserTask extends AsyncTask<String, Void, String> {
 
         @Override
         protected void onPreExecute() {
-            showProgressDialog("Wait...");
+            //showProgressDialog("Wait...");
         }
 
         @Override
@@ -540,6 +598,17 @@ public class RemoteActivity extends AppCompatActivity implements
                 // found user from server
                 // set user
                 MyFirebaseShared.ServerUser = MyFirebaseShared.GetServerUser(result);
+
+                if (MyFirebaseShared.ServerUser != null && MyFirebaseShared.ServerUser.DeviceToken != null) {
+                    if (!MyFirebaseShared.ServerUser.DeviceToken.toLowerCase().equals(MyFirebaseShared.FbRefreshToken.toLowerCase())) {
+                        try {
+                            String updateResult = MyFirebaseShared.UpdateUserToken(MyFirebaseShared.ServerUser.Email, MyFirebaseShared.FbRefreshToken);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+
             } else {
                 MyFirebaseShared.ServerUser = null;
             }
@@ -587,13 +656,17 @@ public class RemoteActivity extends AppCompatActivity implements
 
         @Override
         protected void onPreExecute() {
-            showProgressDialog("Wait...");
+            //showProgressDialog("Wait...");
         }
 
         @Override
         protected String doInBackground(FirebaseUser... firebaseUsers) {
             String result = "";
-            result = MyFirebaseShared.UnRegisterUser(firebaseUsers[0]);
+            try {
+                result = MyFirebaseShared.UnRegisterUser(firebaseUsers[0]);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
             return result;
         }
 

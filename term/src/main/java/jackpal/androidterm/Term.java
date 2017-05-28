@@ -59,6 +59,11 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Executor;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -466,8 +471,8 @@ public class Term extends AppCompatActivity implements
         BookmarkService.Start();
         BookmarkService.getInstance().SetBookmarkEvent(mBookmarkEvent);
 
-        prepareForBookmark();
-        prepareForFirebase();
+//        prepareForBookmark();
+//        prepareForFirebase();
     }
 
     private String makePathFromBundle(Bundle extras) {
@@ -500,7 +505,11 @@ public class Term extends AppCompatActivity implements
             throw new IllegalStateException("Failed to bind to TermService!");
         }
 
+        prepareForBookmark();
+        prepareForFirebase();
+
         mFirebaseAuth.addAuthStateListener(mAuthStateListener);
+
     }
 
     private void populateViewFlipper() {
@@ -1811,7 +1820,21 @@ public class Term extends AppCompatActivity implements
 //    }
 
     private void checkRegistrationStatus(String email) {
-        new GetUserTask().execute(email);
+        //new GetUserTask().execute(email);
+        int corePoolSize = 60;
+        int maximumPoolSize = 80;
+        int keepAliveTime = 10;
+
+        BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<Runnable>(maximumPoolSize);
+        Executor threadPoolExecutor = new ThreadPoolExecutor(corePoolSize, maximumPoolSize, keepAliveTime, TimeUnit.SECONDS, workQueue);
+        GetUserTask task = new GetUserTask();
+
+        if (Build.VERSION.SDK_INT>=Build.VERSION_CODES.HONEYCOMB) {
+            //task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, email);
+            task.executeOnExecutor(threadPoolExecutor, email);
+        } else {
+            task.execute(email);
+        }
     }
 
     private class GetUserTask extends AsyncTask<String, Void, String> {
@@ -1836,12 +1859,20 @@ public class Term extends AppCompatActivity implements
                     // set user
                     MyFirebaseShared.ServerUser = MyFirebaseShared.GetServerUser(result);
 
-                    String refreshedToken = FirebaseInstanceId.getInstance().getToken();
-                    if (!refreshedToken.equalsIgnoreCase(MyFirebaseShared.ServerUser.DeviceToken)) {
-                        // need to update refresh token of server side
-                        String updateResult = MyFirebaseShared.UpdateUserToken(MyFirebaseShared.ServerUser.Email, refreshedToken);
+//                    String refreshedToken = FirebaseInstanceId.getInstance().getToken();
+//                    if (!refreshedToken.equalsIgnoreCase(MyFirebaseShared.ServerUser.DeviceToken)) {
+//                        // need to update refresh token of server side
+//                        String updateResult = MyFirebaseShared.UpdateUserToken(MyFirebaseShared.ServerUser.Email, refreshedToken);
+//                    }
+                    if (MyFirebaseShared.ServerUser != null && MyFirebaseShared.ServerUser.DeviceToken != null) {
+                        if (!MyFirebaseShared.ServerUser.DeviceToken.toLowerCase().equals(MyFirebaseShared.FbRefreshToken.toLowerCase())) {
+                            try {
+                                String updateResult = MyFirebaseShared.UpdateUserToken(MyFirebaseShared.ServerUser.Email, MyFirebaseShared.FbRefreshToken);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }
                     }
-
                 } else {
                     MyFirebaseShared.ServerUser = null;
                 }
@@ -1858,23 +1889,25 @@ public class Term extends AppCompatActivity implements
     }
 
     private void showProgressDialog(final String message) {
-        mActivity.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mProgressDialog = ProgressDialog.show(mContext, null, message);
-            }
-        });
+        return;
+//        mActivity.runOnUiThread(new Runnable() {
+//            @Override
+//            public void run() {
+//                mProgressDialog = ProgressDialog.show(mContext, null, message);
+//            }
+//        });
     }
 
     private void hideProgressDialog() {
-        mActivity.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (mProgressDialog != null) {
-                    mProgressDialog.dismiss();
-                }
-            }
-        });
+        return;
+//        mActivity.runOnUiThread(new Runnable() {
+//            @Override
+//            public void run() {
+//                if (mProgressDialog != null) {
+//                    mProgressDialog.dismiss();
+//                }
+//            }
+//        });
     }
 
 }
